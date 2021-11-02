@@ -1,11 +1,11 @@
 package com.example.fusedlocation
 
 import android.location.Location
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,13 +28,22 @@ class MainActivity : AppCompatActivity() {
                         locationObserver?.disconnect()
                     }
 
-                    override fun deniedLocationPermission() {
-                        Toast.makeText(this@MainActivity, "Denied For Access Location Permission", Toast.LENGTH_SHORT).show()
+                    override fun deniedLocationPermission(errorCode: Int) {
+                        if (errorCode == LocationObserver.DENIED_LOCATION_ENABLE) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Denied For Location Service Enable",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Denied For Access Location",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
 
-                    override fun deniedLocationEnable() {
-                        Toast.makeText(this@MainActivity, "Denied For Location Service Enable", Toast.LENGTH_SHORT).show()
-                    }
                 },
             )
         }

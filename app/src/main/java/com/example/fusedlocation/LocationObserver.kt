@@ -74,12 +74,12 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
      */
     private fun registerLocationEnableObject(owner: LifecycleOwner) {
         locationEnableDialogRequest = mActivity.activityResultRegistry.register(
-                "locationEnableDialog", owner, ActivityResultContracts.StartIntentSenderForResult()
+            "locationEnableDialog", owner, ActivityResultContracts.StartIntentSenderForResult()
         ) { result ->
             if (result.resultCode == RESULT_OK) {
                 startLocationUpdates()
             } else {
-                currentLocationCallback?.deniedLocationPermission(1)
+                currentLocationCallback?.deniedLocationPermission(DENIED_LOCATION_ENABLE)
             }
         }
     }
@@ -90,8 +90,8 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
      */
     private fun registerLocationPermissionObject(owner: LifecycleOwner) {
         locationPermissionRequest = mActivity.activityResultRegistry.register(
-                "location", owner,
-                ActivityResultContracts.RequestMultiplePermissions()
+            "location", owner,
+            ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
             when {
                 permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true -> {
@@ -104,7 +104,7 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
                 }
                 else -> {
                     // No location access granted.
-                    currentLocationCallback?.deniedLocationPermission(0)
+                    currentLocationCallback?.deniedLocationPermission(DENIED_LOCATION_PERMISSION)
                 }
             }
         }
@@ -152,10 +152,10 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
      * updates.
      */
     private fun createLocationRequest(
-            locationPriority: Int = HIGH_ACCURACY,
-            interval: Long = 10000,
-            fastestInterval: Long = 5000,
-            isWaitForAccurateLocation: Boolean = true
+        locationPriority: Int = HIGH_ACCURACY,
+        interval: Long = 10000,
+        fastestInterval: Long = 5000,
+        isWaitForAccurateLocation: Boolean = true
     ) {
         mLocationRequest = LocationRequest.create().apply {
             this.interval = interval
@@ -199,41 +199,41 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
         if (hasLocationPermission()) {
             // Begin by checking if the device has the necessary location settings.
             mSettingsClient.checkLocationSettings(mLocationSettingsRequest)
-                    .addOnSuccessListener {
-                        Log.i(TAG, "All location settings are satisfied.")
-                        mFusedLocationClient.requestLocationUpdates(
-                                mLocationRequest,
-                                mLocationCallback, Looper.myLooper()!!,
-                        )
-                    }
-                    .addOnFailureListener {
-                        when ((it as ApiException).statusCode) {
-                            LocationSettingsStatusCodes.RESOLUTION_REQUIRED -> {
-                                Log.i(
-                                        TAG,
-                                        "Location settings are not satisfied. Attempting to upgrade " + "location settings "
+                .addOnSuccessListener {
+                    Log.i(TAG, "All location settings are satisfied.")
+                    mFusedLocationClient.requestLocationUpdates(
+                        mLocationRequest,
+                        mLocationCallback, Looper.myLooper()!!,
+                    )
+                }
+                .addOnFailureListener {
+                    when ((it as ApiException).statusCode) {
+                        LocationSettingsStatusCodes.RESOLUTION_REQUIRED -> {
+                            Log.i(
+                                TAG,
+                                "Location settings are not satisfied. Attempting to upgrade " + "location settings "
+                            )
+                            try {
+                                // Show the dialog by calling startResolutionForResult(), and check the
+                                // result in onActivityResult().
+                                val rae = it as ResolvableApiException
+                                locationEnableDialogRequest.launch(
+                                    IntentSenderRequest.Builder(rae.resolution).build()
                                 )
-                                try {
-                                    // Show the dialog by calling startResolutionForResult(), and check the
-                                    // result in onActivityResult().
-                                    val rae = it as ResolvableApiException
-                                    locationEnableDialogRequest.launch(
-                                            IntentSenderRequest.Builder(rae.resolution).build()
-                                    )
-                                } catch (sie: IntentSender.SendIntentException) {
-                                    Log.i(TAG, "PendingIntent unable to execute request.")
-                                }
-
-                            }
-                            LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE -> {
-                                val errorMessage =
-                                        "Location settings are inadequate, and cannot be " + "fixed here. Fix in Settings."
-                                Log.e(TAG, errorMessage)
-                                Toast.makeText(mActivity, errorMessage, Toast.LENGTH_LONG).show()
+                            } catch (sie: IntentSender.SendIntentException) {
+                                Log.i(TAG, "PendingIntent unable to execute request.")
                             }
 
                         }
+                        LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE -> {
+                            val errorMessage =
+                                "Location settings are inadequate, and cannot be " + "fixed here. Fix in Settings."
+                            Log.e(TAG, errorMessage)
+                            Toast.makeText(mActivity, errorMessage, Toast.LENGTH_LONG).show()
+                        }
+
                     }
+                }
         } else {
             askLocationPermission()
         }
@@ -249,10 +249,10 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
 
     private fun askLocationPermission() {
         locationPermissionRequest.launch(
-                arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                )
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
         )
     }
 
@@ -262,14 +262,14 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
      */
     private fun hasLocationPermission(): Boolean {
         val arrPermissionName = listOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
         for (i in arrPermissionName.indices) {
             if (checkSelfPermission(
-                            mActivity,
-                            arrPermissionName[i]
-                    ) != PackageManager.PERMISSION_GRANTED
+                    mActivity,
+                    arrPermissionName[i]
+                ) != PackageManager.PERMISSION_GRANTED
             ) {
                 return false
             }
@@ -295,7 +295,8 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
     companion object {
 
         val TAG = LocationObserver::class.java.simpleName.toString()
-
+        const val DENIED_LOCATION_PERMISSION = 0
+        const val DENIED_LOCATION_ENABLE = 1
         /**
          * Location Priority
          */
@@ -303,6 +304,7 @@ class LocationObserver(private val mActivity: AppCompatActivity) : DefaultLifecy
         const val LOW_POWER = 1
         const val BALANCED_POWER_ACCURACY = 2
         const val HIGH_ACCURACY = 3
+
     }
 
 
